@@ -5,9 +5,9 @@ if [[ "$UID" -ne "0" ]]; then
 fi
 
 PT='/usr/lib/plexmediaserver/Plex Transcoder'
-PCAT='/usr/lib/plexmediaserver/Plex Custom Audio Transcoder'
+PCAT='/opt/plex-custom-audio/transcoder'
 
 if [[ -f "$PT" ]] && [[ ! -h "$PT" ]]; then
-    mv -v "$PT" "${PT}_org" \
+    mv -v "$PT" "${PT}_org";
     ln -sv "$PCAT" "$PT"
 fi

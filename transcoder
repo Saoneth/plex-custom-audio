@@ -1,16 +1,17 @@
 #!/bin/bash
 
 DEBUG=false
-DISABLE_TRANSCODING=true
+DEBUG_TRANSCODER=true
+DISABLE_TRANSCODING=false
 PLEX_LIBRARY_PATH='/var/lib/plexmediaserver/Library'
 
-if $DEBUG; then
+if $DEBUG_TRANSCODER; then
     [[ -d '/tmp/plex_custom_transcoder' ]] || mkdir -p '/tmp/plex_custom_transcoder'
     LOG="/tmp/plex_custom_transcoder/$(date +%Y-%m-%d_%H:%M:%S.%s)"
 
     echo "# $(date)" > "$LOG"
     echo "# -----------" >> "$LOG"
-    echo "cd '$PWD';" >> $LOG
+    echo "cd '$PWD';" >> "$LOG"
     echo "LD_LIBRARY_PATH='$LD_LIBRARY_PATH';" >> "$LOG"
     echo "EAE_ROOT='$EAE_ROOT';" >> "$LOG"
     echo "FFMPEG_EXTERNAL_LIBS='$FFMPEG_EXTERNAL_LIBS';" >> "$LOG"
@@ -18,12 +19,12 @@ if $DEBUG; then
     echo "XDG_DATA_HOME='$XDG_DATA_HOME';" >> "$LOG"
     echo "X_PLEX_TOKEN='$X_PLEX_TOKEN';" >> "$LOG"
 
-    echo "'./Plex Transcoder_org' \\" >> "$LOG"
+    printf "%q \\\\\n" "$(realpath "$0").py" >> "$LOG"
     for i in "$@"; do
-        printf "   %q \\\n" "$i" >> "$LOG"
+        printf "   %q \\\\\n" "$i" >> "$LOG"
     done
     echo ";" >> "$LOG"
-    echo "-----------" >> "$LOG"
+    echo "# -----------" >> "$LOG"
 fi
 
 echo "$0"

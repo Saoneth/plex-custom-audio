@@ -1,5 +1,10 @@
 #!/usr/bin/python3
 
+SKIP_CLEANING = True
+CLEAR_EVERYTHING = False
+
+#####################
+
 import sqlite3
 from sqlite3 import Error
 from pathlib import Path
@@ -7,6 +12,7 @@ from subprocess import check_output
 import json
 import time
 import urllib.parse
+import config
 
 def profile(p):
     if p == "DTS":
@@ -20,21 +26,18 @@ def profile(p):
 
 
 def main():
-    CLEAR = False
-    PLEX_DATABASE_PATH = "/var/lib/plexmediaserver/Library/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
-    PATHS = [
-       "/data/merged/Movies/",
-    ]
+    PATHS = []
+    for i, path in enumerate(config.MEDIA_PATHS):
+        PATHS.append('(file LIKE "' + path + '%")')
 
-    for i, path in enumerate(PATHS):
-        PATHS[i] = '(file LIKE "' + path + '%")'
-    PATHS = " OR ".join(PATHS)
-    return
-
+    if len(PATHS) > 0:
+        PATHS = " OR ".join(PATHS)
+    else: # if there are no paths defined we scan everything
+        PATHS = "1 = 1"
 
     try:
-        #conn = sqlite3.connect(PLEX_DATABASE_PATH, timeout=30000, isolation_level=None)
-        conn = sqlite3.connect(PLEX_DATABASE_PATH, timeout=30000)
+        #conn = sqlite3.connect(config.PLEX_LIBRARY_PATH + '/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db', timeout=30000, isolation_level=None)
+        conn = sqlite3.connect(config.PLEX_LIBRARY_PATH + '/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db', timeout=30000)
 
         # To-do: It sometimes fails with 'Database locked'. Think about some retry mechanism?
         conn.isolation_level = 'EXCLUSIVE'
@@ -43,13 +46,15 @@ def main():
         cur2 = conn.cursor()
 
         # To-do: Add our own datatabase, so custom audio metadata isn't completly lost when plex analyses original file
-        print("Cleaning up old audio records")
-        for (media_stream_id, url) in cur.execute('SELECT `id`, `url` FROM `media_streams` WHERE `index` >= 1000 AND `url` != ""'):
-            path = Path(url[7:])
+        if SKIP_CLEANING == False:
+            print("Cleaning up old audio records")
+            for (media_stream_id, url) in cur.execute('SELECT `id`, `url` FROM `media_streams` WHERE `index` >= 1000 AND `url` != ""'):
+                path = Path(url[7:])
 
-            if CLEAR or not path.exists():
-                print("Custom audio file deleted: %s" % url[7:])
-                cur2.execute('DELETE FROM `media_streams` WHERE `id` = ? LIMIT 1', (media_stream_id,))
+                print ("Scanning: %s" % url[7:])
+                if CLEAR_EVERYTHING or not path.exists():
+                    print("Custom audio file deleted: %s" % url[7:])
+                    cur2.execute('DELETE FROM `media_streams` WHERE `id` = ? LIMIT 1', (media_stream_id,))
 
         cur2.close()
         cur.close()

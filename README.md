@@ -1,10 +1,12 @@
 # plex-custom-audio
 
 ## How to install
-1. Extract everything to Plex directory: `/usr/lib/plexmediaserver` (the one with `Plex Transcoder`, etc.)
-2. Run `update-transcoder.sh`
-3. Add path to your media in `Plex Custom Audio Mapper`
-4. Run it as plex, eg. `sudo -u plex './Plex Custom Audio Mapper'`
+1. If you are running in docker run: `docker exec -it plex bash`
+2. Run `curl https://raw.githubusercontent.com/Saoneth/plex-custom-audio/master/install.sh | bash`
+3. It will install ffprobe python3 and this repository in /opt/plex-custom-audio
+4. To map audio tracks run `/opt/plex-custom-audio/mapper` as plex user (or `docker exec plex /opt/plex-custom-audio/mapper` on docker)
+5. You can speed up maping process by limiting scaned directories in /opt/plex-custom-audio/config.py
+6. After plex update run `/opt/plex-custom-audio/update-transcoder`
 
 ## Caveats
 1. It transcodes everything (Direct Stream) which has custom audio.
@@ -14,6 +16,5 @@
 5. It's my second script in python ever so code is one big spagetti.
 
 ## Requirements
-1. python3
-2. ffprobe (It's part of ffmpeg. You can download static build.)
-3. Some python packages, probably?
+1. python3 with sqlite3 support
+2. ffprobe

@@ -1,31 +1,24 @@
 #!/usr/bin/python3
 
-# Don't modify this file
-
 import os
 import sys
 import sqlite3
 from sqlite3 import Error
 from pathlib import Path
+import config
 
 DEBUG = False
-DISABLE_TRANSCODING = False
-PLEX_LIBRARY_PATH = None
+DISABLE_TRANSCODING = True
 PLEX_TRANSCODER = None
 
 def main():
     env = os.environ.copy()
-    env["LD_LIBRARY_PATH"] = env["LD_LIBRARY_PATH_ORG"]
 
-    DEBUG = env["DEBUG"] == "true"
-    DISABLE_TRANSCODING = env["DISABLE_TRANSCODING"] == "true"
-    PLEX_LIBRARY_PATH = env["PLEX_LIBRARY_PATH"]
-    PLEX_TRANSCODER = os.path.dirname(os.path.realpath(sys.argv[0])) + os.sep + "Plex Transcoder_org"
-
-    database = PLEX_LIBRARY_PATH + "/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
+    PLEX_TRANSCODER = config.PLEX_PATH + os.sep + "Plex Transcoder_org"
+    PLEX_DATABASE_PATH = config.PLEX_LIBRARY_PATH + "/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
 
     try:
-        conn = sqlite3.connect(database)
+        conn = sqlite3.connect(PLEX_DATABASE_PATH)
         cur = conn.cursor()
 
         streams = 0
@@ -74,9 +67,17 @@ def main():
                     continue
 
                 print(streams)
+                print("path: %s" % path)
+                if path.startswith("http://127.0.0.1:32400/library/parts/"):
+                    media_part_id = path.split('/')[5]
+                    print(media_part_id)
+                    cur.execute('SELECT `media_item_id` FROM `media_parts` WHERE `id` = ? LIMIT 1', (media_part_id,))
+                    (media_item_id,) = cur.fetchone()
+                else:
+                    cur.execute('SELECT `id`, `media_item_id` FROM `media_parts` WHERE `file` = ? LIMIT 1', (path,))
+                    (media_part_id, media_item_id) = cur.fetchone()
 
-                cur.execute('SELECT `id`, `media_item_id` FROM `media_parts` WHERE `file` = ? LIMIT 1', (path,))
-                (media_part_id, media_item_id) = cur.fetchone()
+                print("media_part_id: %s, media_item_id: %s" % (media_part_id, media_item_id))
 
                 cur.execute('SELECT `url`, `url_index` FROM `media_streams` WHERE `media_part_id` = ? AND `media_item_id` = ? AND `index` = ? LIMIT 1', (media_part_id, media_item_id, index,))
                 (url, url_index) = cur.fetchone()
@@ -115,8 +116,16 @@ def main():
                     print(streams)
 
                     print("path: %s" % path)
-                    cur.execute('SELECT `id`, `media_item_id` FROM `media_parts` WHERE `file` = ? LIMIT 1', (path,))
-                    (media_part_id, media_item_id) = cur.fetchone()
+                    if path.startswith("http://127.0.0.1:32400/library/parts/"):
+                        media_part_id = path.split('/')[5]
+                        print(media_part_id)
+                        cur.execute('SELECT `media_item_id` FROM `media_parts` WHERE `id` = ? LIMIT 1', (media_part_id,))
+                        (media_item_id,) = cur.fetchone()
+                    else:
+                        cur.execute('SELECT `id`, `media_item_id` FROM `media_parts` WHERE `file` = ? LIMIT 1', (path,))
+                        (media_part_id, media_item_id) = cur.fetchone()
+
+                    print("media_part_id: %s, media_item_id: %s" % (media_part_id, media_item_id))
 
                     cur.execute('SELECT `url`, `url_index` FROM `media_streams` WHERE `media_part_id` = ? AND `media_item_id` = ? AND `index` = ? LIMIT 1', (media_part_id, media_item_id, index,))
                     (url, url_index) = cur.fetchone()
@@ -225,7 +234,7 @@ def main():
                 next(args_iter)
                 continue
 
-            elif arg == "-loglevel" or arg == "-loglevel_plex":
+            elif arg == "-loglevel": #or arg == "-loglevel_plex":
                 args.extend([arg, "verbose"])
                 next(args_iter)
                 continue
@@ -248,6 +257,7 @@ def main():
             os.execve(PLEX_TRANSCODER, args, env)
     except Error as e:
         print(e)
+        sys.exit(1)
 
 
 if __name__ == '__main__':
