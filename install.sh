@@ -4,7 +4,12 @@ apt update
 apt install --no-install-recommends -y python3
 
 # Install ffprobe
-ARCH="$PLEX_ARCH"
+if [[ -z $PLEX_ARCH ]]; then
+    ARCH="$(uname -m)"
+else
+    ARCH="$PLEX_ARCH"
+fi
+[[ "$ARCH" == "x86_64" ]] && ARCH="64bit"
 [[ "$ARCH" == "amd64" ]] && ARCH="64bit"
 [[ "$ARCH" == "i386" ]] && ARCH="32bit"
 
