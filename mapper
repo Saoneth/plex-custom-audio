@@ -1,10 +1,5 @@
 #!/usr/bin/python3
 
-SKIP_CLEANING = True
-CLEAR_EVERYTHING = False
-
-#####################
-
 import sqlite3
 from sqlite3 import Error
 from pathlib import Path
@@ -46,13 +41,13 @@ def main():
         cur2 = conn.cursor()
 
         # To-do: Add our own datatabase, so custom audio metadata isn't completly lost when plex analyses original file
-        if SKIP_CLEANING == False:
+        if config.SKIP_CLEANING == False:
             print("Cleaning up old audio records")
             for (media_stream_id, url) in cur.execute('SELECT `id`, `url` FROM `media_streams` WHERE `index` >= 1000 AND `url` != ""'):
                 path = Path(url[7:])
 
                 print ("Scanning: %s" % url[7:])
-                if CLEAR_EVERYTHING or not path.exists():
+                if config.CLEAR_EVERYTHING or not path.exists():
                     print("Custom audio file deleted: %s" % url[7:])
                     cur2.execute('DELETE FROM `media_streams` WHERE `id` = ? LIMIT 1', (media_stream_id,))
 

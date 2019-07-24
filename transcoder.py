@@ -7,10 +7,6 @@ from sqlite3 import Error
 from pathlib import Path
 import config
 
-DEBUG = False
-DISABLE_TRANSCODING = True
-PLEX_TRANSCODER = None
-
 def main():
     env = os.environ.copy()
 
@@ -162,7 +158,7 @@ def main():
                except ValueError:
                    stream = -1
 
-               if DISABLE_TRANSCODING == True and R == True and stream == 0:
+               if config.DISABLE_TRANSCODING == True and R == True and stream == 0:
                    codec = "copy"
 
                if stream < 1000:
@@ -190,7 +186,7 @@ def main():
                 map = next(args_iter)
 
                 print("map: %s, video_map: %s" % (map, video_map,))
-                if DISABLE_TRANSCODING == True and map == video_map:
+                if config.DISABLE_TRANSCODING == True and map == video_map:
                     map = "0:0"
 
                 if map.find(":") != -1:
@@ -211,7 +207,7 @@ def main():
 
                 map = filter_complex[1:j]
                 print("map: %s" % map)
-                if DISABLE_TRANSCODING == True and map == "0:0" and filter_complex.find('scale=') > 0:
+                if config.DISABLE_TRANSCODING == True and map == "0:0" and filter_complex.find('scale=') > 0:
                     print("skip: %s" % filter_complex)
                     continue
 
@@ -230,7 +226,7 @@ def main():
 
                 args.extend([arg, filter_complex])
 
-            elif DISABLE_TRANSCODING == True and ( arg == "-crf:0" or arg == "-maxrate:0" or arg == "-bufsize:0" or arg == "-r:0" or arg == "-preset:0" or arg == "-level:0" or arg == "-x264opts:0" or arg == "-force_key_frames:0" ):
+            elif config.DISABLE_TRANSCODING == True and ( arg == "-crf:0" or arg == "-maxrate:0" or arg == "-bufsize:0" or arg == "-r:0" or arg == "-preset:0" or arg == "-level:0" or arg == "-x264opts:0" or arg == "-force_key_frames:0" ):
                 next(args_iter)
                 continue
 
@@ -253,7 +249,7 @@ def main():
         conn.commit()
         conn.close()
 
-        if DEBUG == False:
+        if config.DEBUG == False:
             os.execve(PLEX_TRANSCODER, args, env)
     except Error as e:
         print(e)
