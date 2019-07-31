@@ -17,7 +17,7 @@ apt install --no-install-recommends -y xz-utils
 wget "https://www.johnvansickle.com/ffmpeg/old-releases/ffmpeg-4.0.3-${ARCH}-static.tar.xz" -O ffmpeg.tar.xz
 tar xvf ffmpeg.tar.xz
 mv -v ffmpeg-*/ffprobe /usr/local/bin/
-rm -rfv ffmpeg-*
+rm -rfv ffmpeg.tar.xz ffmpeg-*
 apt remove --purge -y xz-utils
 
 # Cleanup
