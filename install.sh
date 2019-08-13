@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash -xe
 # Install python
 apt update
 apt install --no-install-recommends -y python3
