@@ -2,7 +2,7 @@
 
 ## How to install
 1. If you are running in docker run: `docker exec -it plex bash`
-2. Run `curl https://raw.githubusercontent.com/Saoneth/plex-custom-audio/master/install.sh | bash`
+2. Run `curl https://raw.githubusercontent.com/Saoneth/plex-custom-audio/master/install.sh | sudo bash`
 3. It will install ffprobe python3 and this repository in /opt/plex-custom-audio
 4. To map audio tracks run `/opt/plex-custom-audio/mapper` as plex user (or `docker exec plex /opt/plex-custom-audio/mapper` on docker)
 5. You can speed up maping process by limiting scaned directories in /opt/plex-custom-audio/config.py
