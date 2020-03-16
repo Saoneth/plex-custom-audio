@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"time"
 	"net/url"
+	"path/filepath"
 )
 
 func encodeUriParams(m map[string]string) string {
@@ -59,11 +60,16 @@ func getDBPath() string {
 		}
 
 		// macOS
-		p = home + "Library/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
+		p = home + "/Library/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
 		if _, err := os.Stat(p); err == nil { return p }
 	}
 
-	return "com.plexapp.plugins.library.db"
+	ex, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+	exPath := filepath.Dir(ex)
+	return exPath + "/com.plexapp.plugins.library.db"
 }
 
 func main() {
@@ -229,7 +235,7 @@ func main() {
 			fTitle := ""
 			fLanguage := s[0]
 			if len(fLanguage) != 3 {
-				fmt.Printf("    ! invalid language: %s\n", fLanguage)
+				fmt.Printf("	! invalid language: %s\n", fLanguage)
 				return nil
 			}
 
@@ -245,7 +251,7 @@ func main() {
 			var res int
 			check_stmt.QueryRow(fileUrl).Scan(&res)
 			if res > 0 {
-				fmt.Println("    @ file already in database")
+				fmt.Println("	@ file already in database")
 				return nil
 			}
 
@@ -256,12 +262,12 @@ func main() {
 
 			pFormatCtx := avformat.AvformatAllocContext()
 			if avformat.AvformatOpenInput(&pFormatCtx, path, nil, nil) != 0 {
-				log.Println("    ! avformat failed to open file")
+				log.Println("	! avformat failed to open file")
 				return nil
 			}
 
 			if pFormatCtx.AvformatFindStreamInfo(nil) < 0 {
-				log.Println("    ! couldn't find stream information")
+				log.Println("	! couldn't find stream information")
 
 				// Close input file and free context
 				pFormatCtx.AvformatCloseInput()
@@ -282,19 +288,19 @@ func main() {
 				codecId := avcodec.CodecId(pCodecCtxOrg.GetCodecId())
 				pCodec := avcodec.AvcodecFindDecoder(codecId)
 				if pCodec == nil {
-					fmt.Printf("    ! unsupported codec in stream: %d\n", i)
+					fmt.Printf("	! unsupported codec in stream: %d\n", i)
 					continue
 				}
 				// Copy context
 				pCodecCtx := pCodec.AvcodecAllocContext3()
 				if pCodecCtx.AvcodecCopyContext((*avcodec.Context)(unsafe.Pointer(pCodecCtxOrg))) != 0 {
-					fmt.Println("    ! couldn't copy codec context")
+					fmt.Println("	! couldn't copy codec context")
 					continue
 				}
 
 				// Open codec
 				if pCodecCtx.AvcodecOpen2(pCodec, nil) < 0 {
-					fmt.Println("    ! could not open codec")
+					fmt.Println("	! could not open codec")
 					continue
 				}
 
@@ -363,7 +369,7 @@ func main() {
 					case avutil.AV_CH_LAYOUT_STEREO_DOWNMIX:
 						extra_data["ma:audioChannelLayout"] = "downmix"
 					default:
-						fmt.Println("    # could not identify channel layout.")
+						fmt.Println("	# could not identify channel layout.")
 				}
 
 				extra_data["ma:samplingRate"] = strconv.Itoa(pCodecCtx.SampleRate())
@@ -393,35 +399,35 @@ func main() {
 				de = pStream.Metadata().AvDictGet("language", nil, 0)
 				if de != nil {
 					language = de.Value()
-					fmt.Printf("    - language: %s\n", language)
+					fmt.Printf("	- language: %s\n", language)
 				}
 
 				title := ""
 				de = pStream.Metadata().AvDictGet("title", nil, 0)
 				if de != nil {
 					title = de.Value()
-					fmt.Printf("    - tile: %s\n", title)
+					fmt.Printf("	- tile: %s\n", title)
 				}
 
 				if fLanguage != language && (language == "" || multiple_streams) {
 					language = fLanguage
-					fmt.Printf("    - forcing language: %s\n", language)
+					fmt.Printf("	- forcing language: %s\n", language)
 				}
 
 				if fTitle != "" && (title == "" || multiple_streams) {
 					title = fTitle
-					fmt.Printf("    - forcing title: %s\n", title)
+					fmt.Printf("	- forcing title: %s\n", title)
 				}
 
 				extra_data_encoded := encodeUriParams(extra_data)
 
 				bitrate := pCodecCtx.BitRate()
 
-				fmt.Println("    @ bitrate:", bitrate)
+				fmt.Println("	@ bitrate:", bitrate)
 
 				date := time.Now().Format("2006-01-02 15:04:05")
 
-				fmt.Println("    @", nil, 2, media_item_id, fileUrl, codec, language, date, date, last_index, media_part_id, pCodecCtx.Channels(), bitrate, pStream.Index(), 0, 0, extra_data_encoded)
+				fmt.Println("	@", nil, 2, media_item_id, fileUrl, codec, language, date, date, last_index, media_part_id, pCodecCtx.Channels(), bitrate, pStream.Index(), 0, 0, extra_data_encoded)
 				_, err := ins_stmt.Exec(nil, 2, media_item_id, "file://" + path, codec, language, date, date, last_index, media_part_id, pCodecCtx.Channels(), bitrate, pStream.Index(), 0, 0, extra_data_encoded)
 				if err != nil {
 					log.Fatal(err)
@@ -431,7 +437,7 @@ func main() {
 				if err != nil {
 					log.Fatal(err)
 				}
-				fmt.Println("    - added successfully")
+				fmt.Println("	- added successfully")
 				last_index++
 
 				pCodecCtx.AvcodecClose()

@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"syscall"
 	"runtime"
+	"path/filepath"
 )
 
 func getDBPath() string {
@@ -40,14 +41,19 @@ func getDBPath() string {
 		}
 
 		// macOS
-		p = home + "Library/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
+		p = home + "/Library/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
 		if _, err := os.Stat(p); err == nil { return p }
 	}
 
-	return "com.plexapp.plugins.library.db"
+	ex, err := os.Executable()
+	if err != nil {
+		panic(err)
+	}
+	exPath := filepath.Dir(ex)
+	return exPath + "/com.plexapp.plugins.library.db"
 }
 
-func runTranscoder(string[] args) {
+func runTranscoder(args string[]) {
 	err := syscall.Exec(args[0] + "_org", args, os.Environ())
 	if err != nil {
 		log.Fatal(err)
@@ -55,9 +61,9 @@ func runTranscoder(string[] args) {
 }
 
 func main() {
-	f, err := os.OpenFile("/tmp/plex-custom-audio.log", os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
+	f, err := os.OpenFile(os.TempDir() + "/plex-custom-audio.log", os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
 	if err != nil {
-		log.Fatalf("error opening file: %v", err)
+		log.Fatalf("error opening log file: %v", err)
 	}
 	defer f.Close()
 
