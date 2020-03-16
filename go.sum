@@ -1,0 +1,4 @@
+github.com/mattn/go-sqlite3 v2.0.3+incompatible h1:gXHsfypPkaMZrKbD5209QV9jbUTJKjyR5WD3HYQSd+U=
+github.com/mattn/go-sqlite3 v2.0.3+incompatible/go.mod h1:FPy6KqzDD04eiIsT53CuJW3U88zkxoIYsOqkbpncsNc=
+github.com/saoneth/goav v0.1.11 h1:cJmqLsgYd6wmUaQuyFTAeJpVSjOc9JCZgP0TuXA/S3E=
+github.com/saoneth/goav v0.1.11/go.mod h1:NOhK6DVDAHlb13f0I69ZlO/LOwIAV27qlwCFj0OwnGg=
