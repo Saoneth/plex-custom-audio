@@ -9,6 +9,7 @@ import (
 	"strings"
 	"strconv"
 	"syscall"
+	"runtime"
 )
 
 func getDBPath() string {
