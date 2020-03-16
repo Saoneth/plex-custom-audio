@@ -48,10 +48,10 @@ func getDBPath() string {
 }
 
 func runTranscoder(string[] args) {
-    err := syscall.Exec(args[0] + "_org", args, os.Environ())
-    if err != nil {
-        log.Fatal(err)
-    }
+	err := syscall.Exec(args[0] + "_org", args, os.Environ())
+	if err != nil {
+		log.Fatal(err)
+	}
 }
 
 func main() {
@@ -135,32 +135,32 @@ func main() {
 		arg := os.Args[i]
 		if arg == "-no-accurate_seek" {
 			hasNoAccurateSeek = true
-            continue
+			continue
 		}
-        if arg == "-ss" {
+		if arg == "-ss" {
 			i++
 			seek = os.Args[i]
-				continue
-			}
-        if strings.HasPrefix(arg, "-codec:") {
+			continue
+		}
+		if strings.HasPrefix(arg, "-codec:") {
 			i++
 			streamIndex, err := strconv.Atoi(arg[7:])
 			if err == nil && streamIndex >= 1000 {
 				continue
 			}
-            audioCodec = os.Args[i]
-            log.Printf("audioCodec: %s\n", audioCodec)
-            continue
+			audioCodec = os.Args[i]
+			log.Printf("audioCodec: %s\n", audioCodec)
+			continue
 		}
-        if arg == "-i" {
+		if arg == "-i" {
 			i++
 			if inputCounter == 0 {
 				path = os.Args[i]
 			}
 			inputCounter++
-            continue
+			continue
 		}
-        if arg == "-map" {
+		if arg == "-map" {
 			i++
 			streamMap := os.Args[i]
 			mapCounter++
@@ -181,9 +181,9 @@ func main() {
 
 			audioPath, audioIndex = getInfo(path, streamIndex)
 			log.Printf("inputCounter: %d, audioPath: %s, audioIndex: %d\n", inputCounter, audioPath, audioIndex)
-            continue
+			continue
 		}
-        if arg == "-filter_complex" {
+		if arg == "-filter_complex" {
 			i++
 			filter_complex := os.Args[i]
 			log.Printf("filter_complex: %s\n", filter_complex)
@@ -208,7 +208,7 @@ func main() {
 				audioPath, audioIndex = getInfo(path, streamIndex)
 			}
 			log.Printf("audioPath: %s, audioIndex: %d\n", audioPath, audioIndex)
-            continue
+			continue
 		}
 	}
 
@@ -224,71 +224,71 @@ func main() {
 
 	for i := 1; i < len(os.Args); i++ {
 		arg := os.Args[i]
-        
-        // Add -codec only if it's for valid input
-		if strings.HasPrefix(arg, "-codec:") 
+		
+		// Add -codec only if it's for valid input
+		if strings.HasPrefix(arg, "-codec:") {
 			i++
 			index, err := strconv.Atoi(arg[7:])
 			if err != nil || index < 1000 {
 				args = append(args, arg, os.Args[i])
 			}
-            continue
-			}
+			continue
+		}
 
-        // Input flag
-        if arg == "-i" {
+		// Input flag
+		if arg == "-i" {
 			i++
 			currentInputIdx++
 
-            // Append flags as they are
+			// Append flags as they are
 			args = append(args, arg, os.Args[i])
-            
-            // If it's last not last input - skip
+			
+			// If it's last not last input - skip
 			if currentInputIdx != inputCounter {
-                continue
-				}
-            
-            // Add codec flag
-            if audioCodec != "" {
-                args = append(args, fmt.Sprintf("-codec:%d", audioIndex), audioCodec)
-				}
-
-            // Add seeking flag
-            if seek != "" {
-                args = append(args, "-ss", seek)
-            }
-
-            // Add -no_accurate_seek
-            if hasNoAccurateSeek {
-					// With this switch, it's faster, but sometimes at the beginning for a few seconds there is no audio
-					// args = append(args, "-no_accurate_seek")
-				}
-            
-            // Add new input with audio file
-            args = append(args, "-analyzeduration", "20000000", "-probesize", "20000000", "-i", audioPath)
-            continue
+				continue
+			}
+			
+			// Add codec flag
+			if audioCodec != "" {
+				args = append(args, fmt.Sprintf("-codec:%d", audioIndex), audioCodec)
 			}
 
-        // Audio identifier could be specified in this flag
-        if arg == "-map" {
+			// Add seeking flag
+			if seek != "" {
+				args = append(args, "-ss", seek)
+			}
+
+			// Add -no_accurate_seek
+			if hasNoAccurateSeek {
+				// With this switch, it's faster, but sometimes at the beginning for a few seconds there is no audio
+				// args = append(args, "-no_accurate_seek")
+			}
+			
+			// Add new input with audio file
+			args = append(args, "-analyzeduration", "20000000", "-probesize", "20000000", "-i", audioPath)
+			continue
+		}
+
+		// Audio identifier could be specified in this flag
+		if arg == "-map" {
 			i++
 			streamMap := os.Args[i]
 
 			log.Printf("streamMap: %s, videoMap: %s\n", streamMap, videoMap)
 			if strings.IndexByte(streamMap, ':') != -1 {
 				index, err := strconv.Atoi(strings.Split(streamMap, ":")[1])
-                // Replace invalid stream identifier for audio with working one
+				// Replace invalid stream identifier for audio with working one
 				if err == nil && index >= 1000 {
 					streamMap = fmt.Sprintf("%d:%d", inputCounter, audioIndex)
-					}
 				}
-
-			args = append(args, arg, streamMap)
-            continue
 			}
 
-        // Audio identifier could be specified in this flag
-        if arg == "-filter_complex" {
+			args = append(args, arg, streamMap)
+			continue
+		}
+
+		// Audio identifier could be specified in this flag
+		if arg == "-filter_complex" {
 			i++
 			filter_complex := os.Args[i]
 			log.Printf("filter_complex: %s\n", filter_complex)
@@ -304,15 +304,15 @@ func main() {
 					log.Fatal(err)
 				}
 				if index >= 1000 {
-                    // Replace invalid stream identifier for audio with working one
+					// Replace invalid stream identifier for audio with working one
 					filter_complex = fmt.Sprintf("[%d:%d]%s", inputCounter, audioIndex, filter_complex[j+1:])
 				}
 			}
 
 			args = append(args, arg, filter_complex)
-            continue
+			continue
 		}
-        // default
+		// default
 		args = append(args, arg)
 	}
 
