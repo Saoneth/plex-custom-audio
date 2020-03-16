@@ -1,0 +1,11 @@
+FROM saoneth/plex-custom-audio:builder-windows as builder
+ADD go.mod /build/
+ADD go.sum /build/
+ADD mapper.go /build/
+ADD transcoder.go /build/
+RUN go build -x -ldflags '-s -w -extldflags "-static -static-libgcc -static-libstdc++"' -tags 'osusergo static_build' -o 'bin/Plex Custom Audio Mapper.exe' mapper.go
+RUN go build -x -ldflags '-s -w -extldflags "-static -static-libgcc -static-libstdc++"' -tags 'osusergo static_build' -o 'bin/Plex Transcoder.exe' transcoder.go
+RUN upx -9 'bin/Plex Custom Audio Mapper.exe'
+
+FROM scratch
+COPY --from=builder /build/bin/* /
