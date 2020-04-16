@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
+	util "github.com/saoneth/plex-custom-audio"
 	"io/ioutil"
 	"log"
 	"os"
@@ -16,45 +17,6 @@ import (
 	"syscall"
 )
 
-func getDBPath() string {
-	var p string
-
-	// Docker
-	p = "/config/Library/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
-	if _, err := os.Stat(p); err == nil { return p }
-
-	// Debian, Fedora, CentOS, Ubuntu
-	p = "/var/lib/plexmediaserver/Library/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
-	if _, err := os.Stat(p); err == nil { return p }
-
-	// FreeBSD
-	p = "/usr/local/plexdata/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
-	if _, err := os.Stat(p); err == nil { return p }
-
-	// ReadyNAS
-	p = "/apps/plexmediaserver/MediaLibrary/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
-	if _, err := os.Stat(p); err == nil { return p }
-
-	home, err := os.UserHomeDir()
-	if err == nil {
-		// Windows
-		if runtime.GOOS == "windows" {
-			p = home + "\\AppData\\Local\\Plex Media Server\\Plug-in Support\\Databases\\com.plexapp.plugins.library.db"
-			if _, err := os.Stat(p); err == nil { return p }
-		}
-
-		// macOS
-		p = home + "/Library/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
-		if _, err := os.Stat(p); err == nil { return p }
-	}
-
-	ex, err := os.Executable()
-	if err != nil {
-		panic(err)
-	}
-	exPath := filepath.Dir(ex)
-	return exPath + "/com.plexapp.plugins.library.db"
-}
 
 func runTranscoder(args []string) {
 	if runtime.GOOS == "windows" {
@@ -77,7 +39,7 @@ func runTranscoder(args []string) {
 			log.Fatal(err)
 		}
 	} else {
-		err := syscall.Exec(args[0]+"_org", args, os.Environ())
+		err := syscall.Exec(args[0] + "_org", args, os.Environ())
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -85,7 +47,7 @@ func runTranscoder(args []string) {
 }
 
 func main() {
-	f, err := os.OpenFile(os.TempDir() + "/plex-custom-audio.log", os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
+	f, err := os.OpenFile(util.GetLogPath(), os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatalf("error opening log file: %v", err)
 	}
@@ -121,7 +83,7 @@ func main() {
 	log.Println("Args:")
 	log.Println(os.Args)
 
-	db, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=rw", getDBPath()))
+	db, err := sql.Open("sqlite3", util.GetDSN())
 	if err != nil {
 		log.Fatal(err, "You can add support for your configuration by creating link to com.plexapp.plugins.library.db in the same directory as this application")
 	}
@@ -170,7 +132,6 @@ func main() {
 		var codec string
 		get_media_stream_url_stmt.QueryRow(media_part_id, media_item_id, index).Scan(&url, &url_index, &codec)
 		audioPath = url[7:]
-		//audioIndex = index - 1000
 		audioIndex = url_index
 		audioCodec = codec
 
@@ -201,7 +162,7 @@ func main() {
 		if strings.HasPrefix(arg, "-codec:") {
 			i++
 			streamIndex, err := strconv.Atoi(arg[7:])
-			if err == nil && streamIndex >= 1000 {
+			if err != nil || streamIndex < 1000 {
 				continue
 			}
 			//audioCodec = os.Args[i]
@@ -384,6 +345,11 @@ func main() {
 			args = append(args, arg, filter_complex)
 			continue
 		}
+		// if arg == "-loglevel" || arg == "-loglevel_plex" {
+		// 	i++
+		// 	args = append(args, arg, "verbose")
+		// 	continue
+		// }
 		// default
 		args = append(args, arg)
 	}
