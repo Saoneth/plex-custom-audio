@@ -9,51 +9,10 @@ import (
 	"strings"
 	"strconv"
 	"syscall"
-	"runtime"
-	"path/filepath"
+	util "github.com/saoneth/plex-custom-audio"
 )
 
-func getDBPath() string {
-	var p string
-
-	// Docker
-	p = "/config/Library/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
-	if _, err := os.Stat(p); err == nil { return p }
-
-	// Debian, Fedora, CentOS, Ubuntu
-	p = "/var/lib/plexmediaserver/Library/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
-	if _, err := os.Stat(p); err == nil { return p }
-
-	// FreeBSD
-	p = "/usr/local/plexdata/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
-	if _, err := os.Stat(p); err == nil { return p }
-
-	// ReadyNAS
-	p = "/apps/plexmediaserver/MediaLibrary/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
-	if _, err := os.Stat(p); err == nil { return p }
-
-	home, err := os.UserHomeDir()
-	if err == nil {
-		// Windows
-		if runtime.GOOS == "windows" {
-			p = home + "\\AppData\\Local\\Plex Media Server\\Plug-in Support\\Databases\\com.plexapp.plugins.library.db"
-			if _, err := os.Stat(p); err == nil { return p }
-		}
-
-		// macOS
-		p = home + "/Library/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
-		if _, err := os.Stat(p); err == nil { return p }
-	}
-
-	ex, err := os.Executable()
-	if err != nil {
-		panic(err)
-	}
-	exPath := filepath.Dir(ex)
-	return exPath + "/com.plexapp.plugins.library.db"
-}
-
-func runTranscoder(args string[]) {
+func runTranscoder(args []string) {
 	err := syscall.Exec(args[0] + "_org", args, os.Environ())
 	if err != nil {
 		log.Fatal(err)
@@ -61,7 +20,7 @@ func runTranscoder(args string[]) {
 }
 
 func main() {
-	f, err := os.OpenFile(os.TempDir() + "/plex-custom-audio.log", os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
+	f, err := os.OpenFile(util.GetLogPath(), os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatalf("error opening log file: %v", err)
 	}
@@ -73,7 +32,7 @@ func main() {
 	log.Println("Args:")
 	log.Println(os.Args)
 
-	db, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=rw", getDBPath()))
+	db, err := sql.Open("sqlite3", util.GetDSN())
 	if err != nil {
 		log.Fatal(err, "You can add support for your configuration by creating link to com.plexapp.plugins.library.db in the same directory as this application")
 	}
@@ -121,7 +80,6 @@ func main() {
 		var url_index int
 		get_media_stream_url_stmt.QueryRow(media_part_id, media_item_id, index).Scan(&url, &url_index)
 		audioPath = url[7:]
-		//audioIndex = index - 1000
 		audioIndex = url_index
 
 		return audioPath, audioIndex
@@ -151,7 +109,7 @@ func main() {
 		if strings.HasPrefix(arg, "-codec:") {
 			i++
 			streamIndex, err := strconv.Atoi(arg[7:])
-			if err == nil && streamIndex >= 1000 {
+			if err != nil || streamIndex < 1000 {
 				continue
 			}
 			audioCodec = os.Args[i]
@@ -218,19 +176,19 @@ func main() {
 		}
 	}
 
-	if mapCounter < 2 {
+	if mapCounter < 2 || audioPath == "" {
 		log.Println("Probably audio streaming")
 		runTranscoder(os.Args)
 	}
 
 	log.Printf("audioPath: %s, audioIndex: %d\n", audioPath, audioIndex)
 
-	args := []string{os.Args[0] + "_org"}
+	args := []string{}
 	currentInputIdx := 0
 
-	for i := 1; i < len(os.Args); i++ {
+	for i := 0; i < len(os.Args); i++ {
 		arg := os.Args[i]
-		
+
 		// Add -codec only if it's for valid input
 		if strings.HasPrefix(arg, "-codec:") {
 			i++
@@ -248,12 +206,12 @@ func main() {
 
 			// Append flags as they are
 			args = append(args, arg, os.Args[i])
-			
+
 			// If it's last not last input - skip
 			if currentInputIdx != inputCounter {
 				continue
 			}
-			
+
 			// Add codec flag
 			if audioCodec != "" {
 				args = append(args, fmt.Sprintf("-codec:%d", audioIndex), audioCodec)
@@ -269,7 +227,7 @@ func main() {
 				// With this switch, it's faster, but sometimes at the beginning for a few seconds there is no audio
 				// args = append(args, "-no_accurate_seek")
 			}
-			
+
 			// Add new input with audio file
 			args = append(args, "-analyzeduration", "20000000", "-probesize", "20000000", "-i", audioPath)
 			continue
@@ -318,6 +276,11 @@ func main() {
 			args = append(args, arg, filter_complex)
 			continue
 		}
+		// if arg == "-loglevel" || arg == "-loglevel_plex" {
+		// 	i++
+		// 	args = append(args, arg, "verbose")
+		// 	continue
+		// }
 		// default
 		args = append(args, arg)
 	}
