@@ -1,7 +1,6 @@
 package main
 
 import (
-	"runtime"
 	"database/sql"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
@@ -16,7 +15,7 @@ import (
 	"strconv"
 	"time"
 	"net/url"
-	"path/filepath"
+	util "github.com/saoneth/plex-custom-audio"
 )
 
 func encodeUriParams(m map[string]string) string {
@@ -29,51 +28,74 @@ func encodeUriParams(m map[string]string) string {
 
 func isAudioFile(file string) bool {
 	// aac,ac3,alac,dts,flac,matroska,mp2,mp3,ogg,wav
-	return strings.HasSuffix(file, ".aac") || strings.HasSuffix(file, ".ac3") || strings.HasSuffix(file, ".alac") || strings.HasSuffix(file, ".dts") || strings.HasSuffix(file, ".flac") || strings.HasSuffix(file, ".mkv") || strings.HasSuffix(file, ".mp2") || strings.HasSuffix(file, ".mp3") || strings.HasSuffix(file, ".ogg") || strings.HasSuffix(file, ".wav")
+	return strings.HasSuffix(file, ".aac") || strings.HasSuffix(file, ".ac3") || strings.HasSuffix(file, ".alac") || strings.HasSuffix(file, ".dts") || strings.HasSuffix(file, ".flac") || strings.HasSuffix(file, ".mka") || strings.HasSuffix(file, ".mp2") || strings.HasSuffix(file, ".mp3") || strings.HasSuffix(file, ".ogg") || strings.HasSuffix(file, ".wav")
 }
 
-func getDBPath() string {
-	var p string
-
-	// Docker
-	p = "/config/Library/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
-	if _, err := os.Stat(p); err == nil { return p }
-
-	// Debian, Fedora, CentOS, Ubuntu
-	p = "/var/lib/plexmediaserver/Library/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
-	if _, err := os.Stat(p); err == nil { return p }
-
-	// FreeBSD
-	p = "/usr/local/plexdata/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
-	if _, err := os.Stat(p); err == nil { return p }
-
-	// ReadyNAS
-	p = "/apps/plexmediaserver/MediaLibrary/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
-	if _, err := os.Stat(p); err == nil { return p }
-
-	home, err := os.UserHomeDir()
-	if err == nil {
-		// Windows
-		if runtime.GOOS == "windows" {
-			p = home + "\\AppData\\Local\\Plex Media Server\\Plug-in Support\\Databases\\com.plexapp.plugins.library.db"
-			if _, err := os.Stat(p); err == nil { return p }
-		}
-
-		// macOS
-		p = home + "/Library/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
-		if _, err := os.Stat(p); err == nil { return p }
+func GetAudioChannelLayout(channelLayout uint64) string {
+	switch channelLayout {
+		case avutil.AV_CH_LAYOUT_MONO:
+			return "mono"
+		case avutil.AV_CH_LAYOUT_STEREO:
+			return "stereo"
+		case avutil.AV_CH_LAYOUT_2POINT1:
+			return "2.1"
+		case avutil.AV_CH_LAYOUT_SURROUND:
+			return "3.0"
+		case avutil.AV_CH_LAYOUT_2_1:
+			return "3.0(back)"
+		case avutil.AV_CH_LAYOUT_4POINT0:
+			return "4.0"
+		case avutil.AV_CH_LAYOUT_QUAD:
+			return "quad"
+		case avutil.AV_CH_LAYOUT_2_2:
+			return "quad(side)"
+		case avutil.AV_CH_LAYOUT_3POINT1:
+			return "3.1"
+		case avutil.AV_CH_LAYOUT_5POINT0_BACK:
+			return "5.0"
+		case avutil.AV_CH_LAYOUT_5POINT0:
+			return "5.0(side)"
+		case avutil.AV_CH_LAYOUT_4POINT1:
+			return "4.1"
+		case avutil.AV_CH_LAYOUT_5POINT1_BACK:
+			return "5.1"
+		case avutil.AV_CH_LAYOUT_5POINT1:
+			return "5.1(side)"
+		case avutil.AV_CH_LAYOUT_6POINT0:
+			return "6.0"
+		case avutil.AV_CH_LAYOUT_6POINT0_FRONT:
+			return "6.0(front)"
+		case avutil.AV_CH_LAYOUT_HEXAGONAL:
+			return "hexagonal"
+		case avutil.AV_CH_LAYOUT_6POINT1:
+			return "6.1"
+		case avutil.AV_CH_LAYOUT_6POINT1_BACK:
+			return "6.1(back)"
+		case avutil.AV_CH_LAYOUT_6POINT1_FRONT:
+			return "6.1(front)"
+		case avutil.AV_CH_LAYOUT_7POINT0:
+			return "7.0"
+		case avutil.AV_CH_LAYOUT_7POINT0_FRONT:
+			return "7.0(front)"
+		case avutil.AV_CH_LAYOUT_7POINT1:
+			return "7.1"
+		case avutil.AV_CH_LAYOUT_7POINT1_WIDE_BACK:
+			return "7.1(wide)"
+		case avutil.AV_CH_LAYOUT_7POINT1_WIDE:
+			return "7.1(wide-side)"
+		case avutil.AV_CH_LAYOUT_OCTAGONAL:
+			return "octagonal"
+		case avutil.AV_CH_LAYOUT_HEXADECAGONAL:
+			return "hexadecagonal"
+		case avutil.AV_CH_LAYOUT_STEREO_DOWNMIX:
+			return "downmix"
 	}
-
-	ex, err := os.Executable()
-	if err != nil {
-		panic(err)
-	}
-	exPath := filepath.Dir(ex)
-	return exPath + "/com.plexapp.plugins.library.db"
+	fmt.Printf("	# could not identify channel layout for: %d", channelLayout)
+	return ""
 }
 
 func main() {
-	db, err := sql.Open("sqlite3", fmt.Sprintf("file:%s?mode=rw", getDBPath()))
+	db, err := sql.Open("sqlite3", util.GetDSN())
 	if err != nil {
 		log.Fatal(err, "You can add support for your configuration by creating link to com.plexapp.plugins.library.db in the same directory as this application")
 	}
@@ -206,6 +228,8 @@ func main() {
 			fmt.Println(" ! file is not yet analysed")
 			continue
 		}
+
+		// If file doesn't have custom tracks we bump last stream index to 1000
 		if last_index < 1000 {
 			last_index = 1000
 		}
@@ -216,7 +240,7 @@ func main() {
 		err = filepath.Walk(file_dir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				fmt.Printf("prevent panic by handling failure accessing a path %q: %v\n", path, err)
-				return err
+				return nil
 			}
 			if info.IsDir() {
 				return nil //filepath.SkipDir
@@ -227,23 +251,17 @@ func main() {
 			}
 			fmt.Printf(" - found audio file: %s\n", path)
 
-			// File needs to be in format: BASENAME.LANG.mka
-			if len(base_filename) > len(name) - 4 {
-				return nil
-			}
-			s := strings.Split(name[len(base_filename):len(name) - 4], ".")
 			fTitle := ""
-			fLanguage := s[0]
-			if len(fLanguage) != 3 {
-				fmt.Printf("	! invalid language: %s\n", fLanguage)
-				return nil
-			}
-
-			if len(s) > 1 {
-				fTitle = strings.Join(s[1:], ".")
-			}
-			if strings.HasPrefix(fTitle, "track-") {
-				fTitle = ""
+			fLanguage := ""
+			// If file is in format: BASENAME.LANG.EXT or BASENAME.LANG.TRACK_TITLE.EXT
+			if len(base_filename) <= len(name) - 4 {
+				s := strings.Split(name[len(base_filename):len(name) - 4], ".")
+				if len(s[0]) == 3 {
+					fLanguage = s[0]
+					if len(s) > 1 && !strings.HasPrefix(s[1], "track-") {
+						fTitle = strings.Join(s[1:], ".")
+					}
+				}
 			}
 
 			fileUrl := "file://" + path
@@ -311,65 +329,9 @@ func main() {
 
 				extra_data := make(map[string]string)
 
-				switch pCodecCtx.ChannelLayout() {
-					case avutil.AV_CH_LAYOUT_MONO:
-						extra_data["ma:audioChannelLayout"] = "mono"
-					case avutil.AV_CH_LAYOUT_STEREO:
-						extra_data["ma:audioChannelLayout"] = "stereo"
-					case avutil.AV_CH_LAYOUT_2POINT1:
-						extra_data["ma:audioChannelLayout"] = "2.1"
-					case avutil.AV_CH_LAYOUT_SURROUND:
-						extra_data["ma:audioChannelLayout"] = "3.0"
-					case avutil.AV_CH_LAYOUT_2_1:
-						extra_data["ma:audioChannelLayout"] = "3.0(back)"
-					case avutil.AV_CH_LAYOUT_4POINT0:
-						extra_data["ma:audioChannelLayout"] = "4.0"
-					case avutil.AV_CH_LAYOUT_QUAD:
-						extra_data["ma:audioChannelLayout"] = "quad"
-					case avutil.AV_CH_LAYOUT_2_2:
-						extra_data["ma:audioChannelLayout"] = "quad(side)"
-					case avutil.AV_CH_LAYOUT_3POINT1:
-						extra_data["ma:audioChannelLayout"] = "3.1"
-					case avutil.AV_CH_LAYOUT_5POINT0_BACK:
-						extra_data["ma:audioChannelLayout"] = "5.0"
-					case avutil.AV_CH_LAYOUT_5POINT0:
-						extra_data["ma:audioChannelLayout"] = "5.0(side)"
-					case avutil.AV_CH_LAYOUT_4POINT1:
-						extra_data["ma:audioChannelLayout"] = "4.1"
-					case avutil.AV_CH_LAYOUT_5POINT1_BACK:
-						extra_data["ma:audioChannelLayout"] = "5.1"
-					case avutil.AV_CH_LAYOUT_5POINT1:
-						extra_data["ma:audioChannelLayout"] = "5.1(side)"
-					case avutil.AV_CH_LAYOUT_6POINT0:
-						extra_data["ma:audioChannelLayout"] = "6.0"
-					case avutil.AV_CH_LAYOUT_6POINT0_FRONT:
-						extra_data["ma:audioChannelLayout"] = "6.0(front)"
-					case avutil.AV_CH_LAYOUT_HEXAGONAL:
-						extra_data["ma:audioChannelLayout"] = "hexagonal"
-					case avutil.AV_CH_LAYOUT_6POINT1:
-						extra_data["ma:audioChannelLayout"] = "6.1"
-					case avutil.AV_CH_LAYOUT_6POINT1_BACK:
-						extra_data["ma:audioChannelLayout"] = "6.1(back)"
-					case avutil.AV_CH_LAYOUT_6POINT1_FRONT:
-						extra_data["ma:audioChannelLayout"] = "6.1(front)"
-					case avutil.AV_CH_LAYOUT_7POINT0:
-						extra_data["ma:audioChannelLayout"] = "7.0"
-					case avutil.AV_CH_LAYOUT_7POINT0_FRONT:
-						extra_data["ma:audioChannelLayout"] = "7.0(front)"
-					case avutil.AV_CH_LAYOUT_7POINT1:
-						extra_data["ma:audioChannelLayout"] = "7.1"
-					case avutil.AV_CH_LAYOUT_7POINT1_WIDE_BACK:
-						extra_data["ma:audioChannelLayout"] = "7.1(wide)"
-					case avutil.AV_CH_LAYOUT_7POINT1_WIDE:
-						extra_data["ma:audioChannelLayout"] = "7.1(wide-side)"
-					case avutil.AV_CH_LAYOUT_OCTAGONAL:
-						extra_data["ma:audioChannelLayout"] = "octagonal"
-					case avutil.AV_CH_LAYOUT_HEXADECAGONAL:
-						extra_data["ma:audioChannelLayout"] = "hexadecagonal"
-					case avutil.AV_CH_LAYOUT_STEREO_DOWNMIX:
-						extra_data["ma:audioChannelLayout"] = "downmix"
-					default:
-						fmt.Println("	# could not identify channel layout.")
+				audioChannelLayout := GetAudioChannelLayout(pCodecCtx.ChannelLayout())
+				if audioChannelLayout != "" {
+					extra_data["ma:audioChannelLayout"] = audioChannelLayout
 				}
 
 				extra_data["ma:samplingRate"] = strconv.Itoa(pCodecCtx.SampleRate())
@@ -406,7 +368,7 @@ func main() {
 				de = pStream.Metadata().AvDictGet("title", nil, 0)
 				if de != nil {
 					title = de.Value()
-					fmt.Printf("	- tile: %s\n", title)
+					fmt.Printf("	- title: %s\n", title)
 				}
 
 				if fLanguage != language && (language == "" || multiple_streams) {
@@ -419,16 +381,20 @@ func main() {
 					fmt.Printf("	- forcing title: %s\n", title)
 				}
 
+				if title != "" {
+					extra_data["ma:title"] = title
+				}
+
+				if language == "" {
+					language = "und"
+					fmt.Printf("	- language set as undefined\n", language)
+				}
+
 				extra_data_encoded := encodeUriParams(extra_data)
-
-				bitrate := pCodecCtx.BitRate()
-
-				fmt.Println("	@ bitrate:", bitrate)
 
 				date := time.Now().Format("2006-01-02 15:04:05")
 
-				fmt.Println("	@", nil, 2, media_item_id, fileUrl, codec, language, date, date, last_index, media_part_id, pCodecCtx.Channels(), bitrate, pStream.Index(), 0, 0, extra_data_encoded)
-				_, err := ins_stmt.Exec(nil, 2, media_item_id, "file://" + path, codec, language, date, date, last_index, media_part_id, pCodecCtx.Channels(), bitrate, pStream.Index(), 0, 0, extra_data_encoded)
+				_, err := ins_stmt.Exec(nil, 2, media_item_id, "file://" + path, codec, language, date, date, last_index, media_part_id, pCodecCtx.Channels(), pCodecCtx.BitRate(), pStream.Index(), 0, 0, extra_data_encoded)
 				if err != nil {
 					log.Fatal(err)
 				}
