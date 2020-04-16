@@ -1,21 +1,48 @@
 package main
 
 import (
+	"bufio"
 	"database/sql"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
+	util "github.com/saoneth/plex-custom-audio"
+	"io/ioutil"
 	"log"
 	"os"
-	"strings"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strconv"
+	"strings"
 	"syscall"
-	util "github.com/saoneth/plex-custom-audio"
 )
 
+
 func runTranscoder(args []string) {
-	err := syscall.Exec(args[0] + "_org", args, os.Environ())
-	if err != nil {
-		log.Fatal(err)
+	if runtime.GOOS == "windows" {
+		ext := filepath.Ext(args[0])
+
+		path := args[0]
+		orgFilename := path[0:len(args[0])-len(ext)] + "_org.exe"
+		cmd := exec.Command(orgFilename, args[1:]...)
+
+		go func() {
+			// wait until the parent dies and bufio closes the stdin
+			_, _ = ioutil.ReadAll(os.Stdin)
+			if cmd.Process != nil {
+				_ = cmd.Process.Kill()
+			}
+		}()
+
+		_, err := cmd.Output()
+		if err != nil {
+			log.Fatal(err)
+		}
+	} else {
+		err := syscall.Exec(args[0] + "_org", args, os.Environ())
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 }
 
@@ -28,6 +55,30 @@ func main() {
 
 	log.SetOutput(f)
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
+	if runtime.GOOS == "windows" {
+		child := false
+		for i := 1; i < len(os.Args); i++ {
+			arg := os.Args[i]
+			if arg == "-child" {
+				child = true
+				break
+			}
+		}
+		if !child {
+			//start new child for watching this process
+			args := append(os.Args[1:], "-child")
+			cmd := exec.Command(os.Args[0], args...)
+
+			//this is important, bufio will close after the parent exits,
+			// unlike os.Stdin which screws up, at least on linux
+			cmd.Stdin = bufio.NewReader(os.Stdin)
+
+			cmd.Start()
+			_, _ = cmd.Process.Wait()
+			return
+		}
+	}
 
 	log.Println("Args:")
 	log.Println(os.Args)
@@ -50,13 +101,13 @@ func main() {
 	}
 	defer get_media_by_file_stmt.Close()
 
-	get_media_stream_url_stmt, err := db.Prepare("SELECT `url`, `url_index` FROM `media_streams` WHERE `media_part_id` = ? AND `media_item_id` = ? AND `index` = ? LIMIT 1")
+	get_media_stream_url_stmt, err := db.Prepare("SELECT `url`, `url_index`, `codec` FROM `media_streams` WHERE `media_part_id` = ? AND `media_item_id` = ? AND `index` = ? LIMIT 1")
 	if err != nil {
 		log.Fatal(err)
 	}
 	defer get_media_stream_url_stmt.Close()
 
-	getInfo := func(path string, index int) (audioPath string, audioIndex int) {
+	getInfo := func(path string, index int) (audioPath string, audioIndex int, audioCodec string) {
 		log.Println("path:", path)
 		var media_part_id int
 		var media_item_id int
@@ -78,11 +129,13 @@ func main() {
 
 		var url string
 		var url_index int
-		get_media_stream_url_stmt.QueryRow(media_part_id, media_item_id, index).Scan(&url, &url_index)
+		var codec string
+		get_media_stream_url_stmt.QueryRow(media_part_id, media_item_id, index).Scan(&url, &url_index, &codec)
 		audioPath = url[7:]
 		audioIndex = url_index
+		audioCodec = codec
 
-		return audioPath, audioIndex
+		return audioPath, audioIndex, audioCodec
 	}
 
 	inputCounter := 0
@@ -112,8 +165,8 @@ func main() {
 			if err != nil || streamIndex < 1000 {
 				continue
 			}
-			audioCodec = os.Args[i]
-			log.Printf("audioCodec: %s\n", audioCodec)
+			//audioCodec = os.Args[i]
+			//log.Printf("audioCodec: %s\n", audioCodec)
 			continue
 		}
 		if arg == "-i" {
@@ -143,7 +196,7 @@ func main() {
 				continue
 			}
 
-			audioPath, audioIndex = getInfo(path, streamIndex)
+			audioPath, audioIndex, audioCodec = getInfo(path, streamIndex)
 			log.Printf("inputCounter: %d, audioPath: %s, audioIndex: %d\n", inputCounter, audioPath, audioIndex)
 			continue
 		}
@@ -169,25 +222,41 @@ func main() {
 
 			if streamIndex >= 1000 {
 				log.Println("Path:", path)
-				audioPath, audioIndex = getInfo(path, streamIndex)
+				audioPath, audioIndex, audioCodec = getInfo(path, streamIndex)
 			}
-			log.Printf("audioPath: %s, audioIndex: %d\n", audioPath, audioIndex)
+			log.Printf("audioPath: %s, audioIndex: %d, audioCodec: %s\n", audioPath, audioIndex, audioCodec)
 			continue
 		}
 	}
 
-	if mapCounter < 2 || audioPath == "" {
+	args := []string{os.Args[0]}
+
+	if mapCounter < 2 || len(audioPath) == 0 {
 		log.Println("Probably audio streaming")
-		runTranscoder(os.Args)
+
+		for i := 1; i < len(os.Args); i++ {
+			arg := os.Args[i]
+
+			if arg == "-child" {
+				continue
+			}
+			// default
+			args = append(args, arg)
+		}
+		runTranscoder(args)
+		return
 	}
 
 	log.Printf("audioPath: %s, audioIndex: %d\n", audioPath, audioIndex)
 
-	args := []string{}
 	currentInputIdx := 0
 
-	for i := 0; i < len(os.Args); i++ {
+	for i := 1; i < len(os.Args); i++ {
 		arg := os.Args[i]
+
+		if arg == "-child" {
+			continue
+		}
 
 		// Add -codec only if it's for valid input
 		if strings.HasPrefix(arg, "-codec:") {

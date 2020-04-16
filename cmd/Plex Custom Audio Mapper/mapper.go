@@ -4,18 +4,18 @@ import (
 	"database/sql"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/saoneth/goav/avcodec"
+	"github.com/saoneth/goav/avformat"
+	"github.com/saoneth/goav/avutil"
+	util "github.com/saoneth/plex-custom-audio"
 	"log"
+	"net/url"
 	"os"
 	"path/filepath"
-	"strings"
-	"github.com/saoneth/goav/avformat"
-	"github.com/saoneth/goav/avcodec"
-	"github.com/saoneth/goav/avutil"
-	"unsafe"
 	"strconv"
+	"strings"
 	"time"
-	"net/url"
-	util "github.com/saoneth/plex-custom-audio"
+	"unsafe"
 )
 
 func encodeUriParams(m map[string]string) string {
@@ -28,7 +28,7 @@ func encodeUriParams(m map[string]string) string {
 
 func isAudioFile(file string) bool {
 	// aac,ac3,alac,dts,flac,matroska,mp2,mp3,ogg,wav
-	return strings.HasSuffix(file, ".aac") || strings.HasSuffix(file, ".ac3") || strings.HasSuffix(file, ".alac") || strings.HasSuffix(file, ".dts") || strings.HasSuffix(file, ".flac") || strings.HasSuffix(file, ".mka") || strings.HasSuffix(file, ".mp2") || strings.HasSuffix(file, ".mp3") || strings.HasSuffix(file, ".ogg") || strings.HasSuffix(file, ".wav")
+	return strings.HasSuffix(file, ".aac") || strings.HasSuffix(file, ".ac3") || strings.HasSuffix(file, ".alac") || strings.HasSuffix(file, ".dtshd") || strings.HasSuffix(file, ".dts") || strings.HasSuffix(file, ".thd") || strings.HasSuffix(file, ".flac") || strings.HasSuffix(file, ".mka") || strings.HasSuffix(file, ".mp2") || strings.HasSuffix(file, ".mp3") || strings.HasSuffix(file, ".ogg") || strings.HasSuffix(file, ".wav")
 }
 
 func GetAudioChannelLayout(channelLayout uint64) string {
@@ -222,7 +222,7 @@ func main() {
 		}
 
 		var last_index int
-		last_index_stmt.QueryRow(media_item_id).Scan(&last_index)
+		_ = last_index_stmt.QueryRow(media_item_id).Scan(&last_index)
 
 		if last_index == 0 {
 			fmt.Println(" ! file is not yet analysed")
@@ -249,13 +249,14 @@ func main() {
 			if name == filename || !strings.HasPrefix(name, base_filename) || !isAudioFile(name) {
 				return nil
 			}
+			ext := filepath.Ext(name)
 			fmt.Printf(" - found audio file: %s\n", path)
 
 			fTitle := ""
 			fLanguage := ""
 			// If file is in format: BASENAME.LANG.EXT or BASENAME.LANG.TRACK_TITLE.EXT
-			if len(base_filename) <= len(name) - 4 {
-				s := strings.Split(name[len(base_filename):len(name) - 4], ".")
+			if len(base_filename) <= len(name) - len(ext) {
+				s := strings.Split(name[len(base_filename):len(name) - len(ext)], ".")
 				if len(s[0]) == 3 {
 					fLanguage = s[0]
 					if len(s) > 1 && !strings.HasPrefix(s[1], "track-") {
@@ -267,7 +268,7 @@ func main() {
 			fileUrl := "file://" + path
 
 			var res int
-			check_stmt.QueryRow(fileUrl).Scan(&res)
+			_ = check_stmt.QueryRow(fileUrl).Scan(&res)
 			if res > 0 {
 				fmt.Println("	@ file already in database")
 				return nil
