@@ -36,43 +36,31 @@ func getDBPath() string {
 
 	// Docker
 	p = "/config/Library/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
-	if _, err := os.Stat(p); err == nil {
-		return p
-	}
+	if _, err := os.Stat(p); err == nil { return p }
 
 	// Debian, Fedora, CentOS, Ubuntu
 	p = "/var/lib/plexmediaserver/Library/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
-	if _, err := os.Stat(p); err == nil {
-		return p
-	}
+	if _, err := os.Stat(p); err == nil { return p }
 
 	// FreeBSD
 	p = "/usr/local/plexdata/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
-	if _, err := os.Stat(p); err == nil {
-		return p
-	}
+	if _, err := os.Stat(p); err == nil { return p }
 
 	// ReadyNAS
 	p = "/apps/plexmediaserver/MediaLibrary/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
-	if _, err := os.Stat(p); err == nil {
-		return p
-	}
+	if _, err := os.Stat(p); err == nil { return p }
 
 	home, err := os.UserHomeDir()
 	if err == nil {
 		// Windows
 		if runtime.GOOS == "windows" {
 			p = home + "\\AppData\\Local\\Plex Media Server\\Plug-in Support\\Databases\\com.plexapp.plugins.library.db"
-			if _, err := os.Stat(p); err == nil {
-				return p
-			}
+			if _, err := os.Stat(p); err == nil { return p }
 		}
 
 		// macOS
 		p = home + "/Library/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
-		if _, err := os.Stat(p); err == nil {
-			return p
-		}
+		if _, err := os.Stat(p); err == nil { return p }
 	}
 
 	ex, err := os.Executable()
@@ -147,7 +135,7 @@ func main() {
 		fmt.Println("Selected directories for scanning:")
 		for i := 1; i < len(args); i++ {
 			fmt.Printf(" - %s\n", args[i])
-			pathQuery = pathQuery + " OR `file` LIKE " + strconv.Quote(args[i]+"%")
+			pathQuery = pathQuery + " OR `file` LIKE " + strconv.Quote(args[i] + "%")
 		}
 		pathQuery = " AND (" + pathQuery[4:] + ")"
 	}
@@ -223,7 +211,7 @@ func main() {
 
 		file_dir := filepath.Dir(file) + "/"
 		filename := filepath.Base(file)
-		base_filename := filename[0:len(filename)-len(ext)] + "."
+		base_filename := filename[0:len(filename) - len(ext)] + "."
 		err = filepath.Walk(file_dir, func(path string, info os.FileInfo, err error) error {
 			if err != nil {
 				fmt.Printf("prevent panic by handling failure accessing a path %q: %v\n", path, err)
@@ -324,64 +312,64 @@ func main() {
 				extra_data := make(map[string]string)
 
 				switch pCodecCtx.ChannelLayout() {
-				case avutil.AV_CH_LAYOUT_MONO:
-					extra_data["ma:audioChannelLayout"] = "mono"
-				case avutil.AV_CH_LAYOUT_STEREO:
-					extra_data["ma:audioChannelLayout"] = "stereo"
-				case avutil.AV_CH_LAYOUT_2POINT1:
-					extra_data["ma:audioChannelLayout"] = "2.1"
-				case avutil.AV_CH_LAYOUT_SURROUND:
-					extra_data["ma:audioChannelLayout"] = "3.0"
-				case avutil.AV_CH_LAYOUT_2_1:
-					extra_data["ma:audioChannelLayout"] = "3.0(back)"
-				case avutil.AV_CH_LAYOUT_4POINT0:
-					extra_data["ma:audioChannelLayout"] = "4.0"
-				case avutil.AV_CH_LAYOUT_QUAD:
-					extra_data["ma:audioChannelLayout"] = "quad"
-				case avutil.AV_CH_LAYOUT_2_2:
-					extra_data["ma:audioChannelLayout"] = "quad(side)"
-				case avutil.AV_CH_LAYOUT_3POINT1:
-					extra_data["ma:audioChannelLayout"] = "3.1"
-				case avutil.AV_CH_LAYOUT_5POINT0_BACK:
-					extra_data["ma:audioChannelLayout"] = "5.0"
-				case avutil.AV_CH_LAYOUT_5POINT0:
-					extra_data["ma:audioChannelLayout"] = "5.0(side)"
-				case avutil.AV_CH_LAYOUT_4POINT1:
-					extra_data["ma:audioChannelLayout"] = "4.1"
-				case avutil.AV_CH_LAYOUT_5POINT1_BACK:
-					extra_data["ma:audioChannelLayout"] = "5.1"
-				case avutil.AV_CH_LAYOUT_5POINT1:
-					extra_data["ma:audioChannelLayout"] = "5.1(side)"
-				case avutil.AV_CH_LAYOUT_6POINT0:
-					extra_data["ma:audioChannelLayout"] = "6.0"
-				case avutil.AV_CH_LAYOUT_6POINT0_FRONT:
-					extra_data["ma:audioChannelLayout"] = "6.0(front)"
-				case avutil.AV_CH_LAYOUT_HEXAGONAL:
-					extra_data["ma:audioChannelLayout"] = "hexagonal"
-				case avutil.AV_CH_LAYOUT_6POINT1:
-					extra_data["ma:audioChannelLayout"] = "6.1"
-				case avutil.AV_CH_LAYOUT_6POINT1_BACK:
-					extra_data["ma:audioChannelLayout"] = "6.1(back)"
-				case avutil.AV_CH_LAYOUT_6POINT1_FRONT:
-					extra_data["ma:audioChannelLayout"] = "6.1(front)"
-				case avutil.AV_CH_LAYOUT_7POINT0:
-					extra_data["ma:audioChannelLayout"] = "7.0"
-				case avutil.AV_CH_LAYOUT_7POINT0_FRONT:
-					extra_data["ma:audioChannelLayout"] = "7.0(front)"
-				case avutil.AV_CH_LAYOUT_7POINT1:
-					extra_data["ma:audioChannelLayout"] = "7.1"
-				case avutil.AV_CH_LAYOUT_7POINT1_WIDE_BACK:
-					extra_data["ma:audioChannelLayout"] = "7.1(wide)"
-				case avutil.AV_CH_LAYOUT_7POINT1_WIDE:
-					extra_data["ma:audioChannelLayout"] = "7.1(wide-side)"
-				case avutil.AV_CH_LAYOUT_OCTAGONAL:
-					extra_data["ma:audioChannelLayout"] = "octagonal"
-				case avutil.AV_CH_LAYOUT_HEXADECAGONAL:
-					extra_data["ma:audioChannelLayout"] = "hexadecagonal"
-				case avutil.AV_CH_LAYOUT_STEREO_DOWNMIX:
-					extra_data["ma:audioChannelLayout"] = "downmix"
-				default:
-					fmt.Println("	# could not identify channel layout.")
+					case avutil.AV_CH_LAYOUT_MONO:
+						extra_data["ma:audioChannelLayout"] = "mono"
+					case avutil.AV_CH_LAYOUT_STEREO:
+						extra_data["ma:audioChannelLayout"] = "stereo"
+					case avutil.AV_CH_LAYOUT_2POINT1:
+						extra_data["ma:audioChannelLayout"] = "2.1"
+					case avutil.AV_CH_LAYOUT_SURROUND:
+						extra_data["ma:audioChannelLayout"] = "3.0"
+					case avutil.AV_CH_LAYOUT_2_1:
+						extra_data["ma:audioChannelLayout"] = "3.0(back)"
+					case avutil.AV_CH_LAYOUT_4POINT0:
+						extra_data["ma:audioChannelLayout"] = "4.0"
+					case avutil.AV_CH_LAYOUT_QUAD:
+						extra_data["ma:audioChannelLayout"] = "quad"
+					case avutil.AV_CH_LAYOUT_2_2:
+						extra_data["ma:audioChannelLayout"] = "quad(side)"
+					case avutil.AV_CH_LAYOUT_3POINT1:
+						extra_data["ma:audioChannelLayout"] = "3.1"
+					case avutil.AV_CH_LAYOUT_5POINT0_BACK:
+						extra_data["ma:audioChannelLayout"] = "5.0"
+					case avutil.AV_CH_LAYOUT_5POINT0:
+						extra_data["ma:audioChannelLayout"] = "5.0(side)"
+					case avutil.AV_CH_LAYOUT_4POINT1:
+						extra_data["ma:audioChannelLayout"] = "4.1"
+					case avutil.AV_CH_LAYOUT_5POINT1_BACK:
+						extra_data["ma:audioChannelLayout"] = "5.1"
+					case avutil.AV_CH_LAYOUT_5POINT1:
+						extra_data["ma:audioChannelLayout"] = "5.1(side)"
+					case avutil.AV_CH_LAYOUT_6POINT0:
+						extra_data["ma:audioChannelLayout"] = "6.0"
+					case avutil.AV_CH_LAYOUT_6POINT0_FRONT:
+						extra_data["ma:audioChannelLayout"] = "6.0(front)"
+					case avutil.AV_CH_LAYOUT_HEXAGONAL:
+						extra_data["ma:audioChannelLayout"] = "hexagonal"
+					case avutil.AV_CH_LAYOUT_6POINT1:
+						extra_data["ma:audioChannelLayout"] = "6.1"
+					case avutil.AV_CH_LAYOUT_6POINT1_BACK:
+						extra_data["ma:audioChannelLayout"] = "6.1(back)"
+					case avutil.AV_CH_LAYOUT_6POINT1_FRONT:
+						extra_data["ma:audioChannelLayout"] = "6.1(front)"
+					case avutil.AV_CH_LAYOUT_7POINT0:
+						extra_data["ma:audioChannelLayout"] = "7.0"
+					case avutil.AV_CH_LAYOUT_7POINT0_FRONT:
+						extra_data["ma:audioChannelLayout"] = "7.0(front)"
+					case avutil.AV_CH_LAYOUT_7POINT1:
+						extra_data["ma:audioChannelLayout"] = "7.1"
+					case avutil.AV_CH_LAYOUT_7POINT1_WIDE_BACK:
+						extra_data["ma:audioChannelLayout"] = "7.1(wide)"
+					case avutil.AV_CH_LAYOUT_7POINT1_WIDE:
+						extra_data["ma:audioChannelLayout"] = "7.1(wide-side)"
+					case avutil.AV_CH_LAYOUT_OCTAGONAL:
+						extra_data["ma:audioChannelLayout"] = "octagonal"
+					case avutil.AV_CH_LAYOUT_HEXADECAGONAL:
+						extra_data["ma:audioChannelLayout"] = "hexadecagonal"
+					case avutil.AV_CH_LAYOUT_STEREO_DOWNMIX:
+						extra_data["ma:audioChannelLayout"] = "downmix"
+					default:
+						fmt.Println("	# could not identify channel layout.")
 				}
 
 				extra_data["ma:samplingRate"] = strconv.Itoa(pCodecCtx.SampleRate())
@@ -394,15 +382,15 @@ func main() {
 				}
 				profile := pCodec.AvGetProfileName(pCodecCtx.Profile())
 				switch profile {
-				case "":
-					// ignore
-				case "DTS":
-					extra_data["ma:profile"] = "dts"
-				case "DTS-HD MA":
-					extra_data["ma:profile"] = "ma"
-				default:
-					fmt.Printf("Unknown profile: %s\n", profile)
-					extra_data["ma:profile"] = profile
+					case "":
+						// ignore
+					case "DTS":
+						extra_data["ma:profile"] = "dts"
+					case "DTS-HD MA":
+						extra_data["ma:profile"] = "ma"
+					default:
+						fmt.Printf("Unknown profile: %s\n", profile)
+						extra_data["ma:profile"] = profile
 				}
 
 				var de *avutil.DictionaryEntry
@@ -440,7 +428,7 @@ func main() {
 				date := time.Now().Format("2006-01-02 15:04:05")
 
 				fmt.Println("	@", nil, 2, media_item_id, fileUrl, codec, language, date, date, last_index, media_part_id, pCodecCtx.Channels(), bitrate, pStream.Index(), 0, 0, extra_data_encoded)
-				_, err := ins_stmt.Exec(nil, 2, media_item_id, "file://"+path, codec, language, date, date, last_index, media_part_id, pCodecCtx.Channels(), bitrate, pStream.Index(), 0, 0, extra_data_encoded)
+				_, err := ins_stmt.Exec(nil, 2, media_item_id, "file://" + path, codec, language, date, date, last_index, media_part_id, pCodecCtx.Channels(), bitrate, pStream.Index(), 0, 0, extra_data_encoded)
 				if err != nil {
 					log.Fatal(err)
 				}

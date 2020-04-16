@@ -21,43 +21,31 @@ func getDBPath() string {
 
 	// Docker
 	p = "/config/Library/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
-	if _, err := os.Stat(p); err == nil {
-		return p
-	}
+	if _, err := os.Stat(p); err == nil { return p }
 
 	// Debian, Fedora, CentOS, Ubuntu
 	p = "/var/lib/plexmediaserver/Library/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
-	if _, err := os.Stat(p); err == nil {
-		return p
-	}
+	if _, err := os.Stat(p); err == nil { return p }
 
 	// FreeBSD
 	p = "/usr/local/plexdata/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
-	if _, err := os.Stat(p); err == nil {
-		return p
-	}
+	if _, err := os.Stat(p); err == nil { return p }
 
 	// ReadyNAS
 	p = "/apps/plexmediaserver/MediaLibrary/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
-	if _, err := os.Stat(p); err == nil {
-		return p
-	}
+	if _, err := os.Stat(p); err == nil { return p }
 
 	home, err := os.UserHomeDir()
 	if err == nil {
 		// Windows
 		if runtime.GOOS == "windows" {
 			p = home + "\\AppData\\Local\\Plex Media Server\\Plug-in Support\\Databases\\com.plexapp.plugins.library.db"
-			if _, err := os.Stat(p); err == nil {
-				return p
-			}
+			if _, err := os.Stat(p); err == nil { return p }
 		}
 
 		// macOS
 		p = home + "/Library/Application Support/Plex Media Server/Plug-in Support/Databases/com.plexapp.plugins.library.db"
-		if _, err := os.Stat(p); err == nil {
-			return p
-		}
+		if _, err := os.Stat(p); err == nil { return p }
 	}
 
 	ex, err := os.Executable()
@@ -97,7 +85,7 @@ func runTranscoder(args []string) {
 }
 
 func main() {
-	f, err := os.OpenFile(os.TempDir()+"/plex-custom-audio.log", os.O_RDWR|os.O_CREATE|os.O_APPEND, 0666)
+	f, err := os.OpenFile(os.TempDir() + "/plex-custom-audio.log", os.O_RDWR | os.O_CREATE | os.O_APPEND, 0666)
 	if err != nil {
 		log.Fatalf("error opening log file: %v", err)
 	}
