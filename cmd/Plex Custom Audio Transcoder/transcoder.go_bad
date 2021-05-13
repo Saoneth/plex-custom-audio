@@ -13,6 +13,9 @@ import (
 )
 
 func runTranscoder(args []string) {
+	log.Println("Running transcoder with args:")
+	log.Println(args)
+	log.Println(os.Environ())
 	err := syscall.Exec(args[0] + "_org", args, os.Environ())
 	if err != nil {
 		log.Fatal(err)
@@ -160,31 +163,35 @@ func main() {
 				continue
 			}
 
-			streamIndex, err := strconv.Atoi(strings.Split(streamMap, ":")[1])
-			if err != nil {
-				// index = 0
-				log.Fatal(err)
-			}
-			audioIndex = streamIndex
+			filterParts := strings.Split(streamMap, ":")
+			if len(filterParts) == 2 {
+				streamIndex, err := strconv.Atoi(filterParts[1])
+				if err != nil {
+					// index = 0
+					log.Fatal(err)
+				}
+				audioIndex = streamIndex
 
-			if streamIndex >= 1000 {
-				log.Println("Path:", path)
-				audioPath, audioIndex = getInfo(path, streamIndex)
+				if streamIndex >= 1000 {
+					log.Println("Path:", path)
+					audioPath, audioIndex = getInfo(path, streamIndex)
+				}
+				log.Printf("audioPath: %s, audioIndex: %d\n", audioPath, audioIndex)
+				continue
 			}
-			log.Printf("audioPath: %s, audioIndex: %d\n", audioPath, audioIndex)
-			continue
 		}
 	}
 
-	if mapCounter < 2 || audioPath == "" {
-		log.Println("Probably audio streaming")
-		runTranscoder(os.Args)
-	}
+//	if mapCounter < 2 || audioPath == "" {
+//		log.Println("Probably audio streaming")
+//		runTranscoder(os.Args)
+//	}
 
 	log.Printf("audioPath: %s, audioIndex: %d\n", audioPath, audioIndex)
 
 	args := []string{}
 	currentInputIdx := 0
+	codecIdx := 0
 
 	for i := 0; i < len(os.Args); i++ {
 		arg := os.Args[i]
@@ -193,7 +200,17 @@ func main() {
 		if strings.HasPrefix(arg, "-codec:") {
 			i++
 			index, err := strconv.Atoi(arg[7:])
-			if err != nil || index < 1000 {
+			if err != nil {
+				log.Printf("%v\n", err)
+			}
+			if err == nil && index < 1000 {
+				log.Printf("currentInputIdx: %d\n", currentInputIdx)
+				if currentInputIdx > 0 {
+					arg = fmt.Sprintf("-codec:%d", codecIdx)
+					log.Printf("-codec:%d %s\n", codecIdx, os.Args[i])
+					codecIdx++
+				}
+
 				args = append(args, arg, os.Args[i])
 			}
 			continue
@@ -203,9 +220,14 @@ func main() {
 		if arg == "-i" {
 			i++
 			currentInputIdx++
+			codecIdx = 0
 
 			// Append flags as they are
 			args = append(args, arg, os.Args[i])
+
+			if audioPath == "" {
+				continue
+			}
 
 			// If it's last not last input - skip
 			if currentInputIdx != inputCounter {
@@ -252,6 +274,14 @@ func main() {
 		}
 
 		// Audio identifier could be specified in this flag
+		if arg == "-map_inlineass" {
+			i++
+			log.Printf("currentInputIdx: %d\n", currentInputIdx)
+			log.Printf("2codec: %d\n", codecIdx)
+			args = append(args, "-map", os.Args[i], fmt.Sprintf("-codec:%d", codecIdx), "copy")
+			codecIdx++
+			continue
+		}
 		if arg == "-filter_complex" {
 			i++
 			filter_complex := os.Args[i]
@@ -261,13 +291,32 @@ func main() {
 			streamMap := filter_complex[1:j]
 			log.Printf("filter_complex map: %s\n", streamMap)
 
-			if audioPath != "" && strings.IndexByte(filter_complex, ':') != -1 {
+			if strings.Contains(filter_complex, "scale=") {
+				args = append(args, "-map", streamMap, fmt.Sprintf("-codec:%d", codecIdx), "copy")
+				codecIdx++
+
+				for i = i + 5; i < len(os.Args); i++ {
+					arg := os.Args[i]
+
+					if arg == "-crf:0" || arg == "-maxrate:0" || arg == "-bufsize:0" || arg == "-r:0" || arg == "-preset:0" || arg == "-level:0" || arg == "-x264opts:0" || arg == "-force_key_frames:0" {
+						i++
+						continue
+					}
+					i--
+					break
+				}
+				continue
+			}
+
+
+			if strings.IndexByte(filter_complex, ':') != -1 {
 				index, err := strconv.Atoi(strings.Split(streamMap, ":")[1])
 				if err != nil {
 					// index = 0
 					log.Fatal(err)
 				}
-				if index >= 1000 {
+
+				if audioPath != "" && index >= 1000 {
 					// Replace invalid stream identifier for audio with working one
 					filter_complex = fmt.Sprintf("[%d:%d]%s", inputCounter, audioIndex, filter_complex[j+1:])
 				}
@@ -276,17 +325,17 @@ func main() {
 			args = append(args, arg, filter_complex)
 			continue
 		}
-		// if arg == "-loglevel" || arg == "-loglevel_plex" {
-		// 	i++
-		// 	args = append(args, arg, "verbose")
-		// 	continue
-		// }
+		if arg == "-loglevel" || arg == "-loglevel_plex" {
+			i++
+			args = append(args, arg, "verbose")
+			continue
+		}
+
 		// default
 		args = append(args, arg)
 	}
 
-	log.Println("Custom audio detected. New args:")
-	log.Println(args)
+	log.Println("Custom audio detected.")
 
 	runTranscoder(args)
 }
