@@ -16,6 +16,7 @@ import (
 	"time"
 	"net/url"
 	util "github.com/saoneth/plex-custom-audio"
+    "flag"
 )
 
 func encodeUriParams(m map[string]string) string {
@@ -27,8 +28,33 @@ func encodeUriParams(m map[string]string) string {
 }
 
 func isAudioFile(file string) bool {
-	// aac,ac3,alac,dts,flac,matroska,mp2,mp3,ogg,wav
-	return strings.HasSuffix(file, ".aac") || strings.HasSuffix(file, ".ac3") || strings.HasSuffix(file, ".alac") || strings.HasSuffix(file, ".dts") || strings.HasSuffix(file, ".flac") || strings.HasSuffix(file, ".mka") || strings.HasSuffix(file, ".mp2") || strings.HasSuffix(file, ".mp3") || strings.HasSuffix(file, ".ogg") || strings.HasSuffix(file, ".wav")
+	extensions := []string{
+		"aac",
+		"aif",
+		"ac3",
+		"alac",
+		"dts",
+		"dtshd",
+		"thd",
+		"flac",
+		"mka",
+		"mpa",
+		"mp2",
+		"mp3",
+		"m4a",
+		"ogg",
+		"oga",
+		"wav",
+		"wma",
+		"ra",
+	}
+
+	for _, extension := range extensions {
+		if strings.HasSuffix(file, "."+extension) {
+			return true
+		}
+	}
+	return false
 }
 
 func GetAudioChannelLayout(channelLayout uint64) string {
@@ -95,19 +121,16 @@ func GetAudioChannelLayout(channelLayout uint64) string {
 }
 
 func main() {
-	db, err := sql.Open("sqlite3", util.GetDSN())
+    dbPath := flag.String("dbPath", util.GetDSN(), "Path to com.plexapp.plugins.library.db")
+    skip_cleaning := flag.Bool("s", false, "Skip removal of missing files.")
+	flag.Parse()
+	args := flag.Args()
+
+	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
-		log.Fatal(err, "You can add support for your configuration by creating link to com.plexapp.plugins.library.db in the same directory as this application")
+		log.Fatal(err, "Failed to open com.plexapp.plugins.library.db. You can try to provide direct path by using -dbPath.")
 	}
 	defer db.Close()
-
-	args := os.Args
-	skip_cleaning := false
-	fmt.Println(len(os.Args))
-	if len(os.Args) > 1 && os.Args[1] == "-s" {
-		skip_cleaning = true
-		args = args[1:]
-	}
 
 	if !skip_cleaning {
 		// To-do: Add our own datatabase, so custom audio metadata isn't completly lost when plex analyses original file
@@ -154,9 +177,9 @@ func main() {
 	}
 
 	pathQuery := ""
-	if len(args) > 1 {
+	if len(args) > 0 {
 		fmt.Println("Selected directories for scanning:")
-		for i := 1; i < len(args); i++ {
+		for i := 0; i < len(args); i++ {
 			fmt.Printf(" - %s\n", args[i])
 			pathQuery = pathQuery + " OR `file` LIKE " + strconv.Quote(args[i] + "%")
 		}
@@ -196,7 +219,11 @@ func main() {
 	}
 	defer ins_stmt.Close()
 
-	upd_stmt, err := db.Prepare("UPDATE `metadata_items` SET `added_at`=? WHERE `id` = (SELECT `metadata_item_id` FROM `media_items` WHERE `id` = ? LIMIT 1)")
+        // remove triggers first
+        // SELECT name, sql FROM sqlite_master WHERE type='trigger' AND tbl_name='metadata_items' AND name LIKE '%update%'
+        // DROP TRIGGER name;
+
+	upd_stmt, err := db.Prepare("UPDATE `metadata_items` SET `added_at`=? WHERE `id` IN (SELECT `metadata_item_id` FROM `media_items` WHERE `id` = ? LIMIT 1)")
 	if err != nil {
 		log.Fatal(err)
 	}
