@@ -16,7 +16,7 @@ import (
 	"time"
 	"net/url"
 	util "github.com/saoneth/plex-custom-audio"
-    "flag"
+	"flag"
 )
 
 func encodeUriParams(m map[string]string) string {
@@ -121,8 +121,10 @@ func GetAudioChannelLayout(channelLayout uint64) string {
 }
 
 func main() {
-    dbPath := flag.String("dbPath", util.GetDSN(), "Path to com.plexapp.plugins.library.db")
-    skip_cleaning := flag.Bool("s", false, "Skip removal of missing files.")
+	var dbPath string
+    flag.StringVar(&dbPath, "dbPath", util.GetDSN(), "Path to com.plexapp.plugins.library.db")
+	var skip_cleaning bool
+    flag.BoolVar(&skip_cleaning, "s", false, "Skip removal of missing files.")
 	flag.Parse()
 	args := flag.Args()
 
@@ -219,9 +221,16 @@ func main() {
 	}
 	defer ins_stmt.Close()
 
-        // remove triggers first
-        // SELECT name, sql FROM sqlite_master WHERE type='trigger' AND tbl_name='metadata_items' AND name LIKE '%update%'
-        // DROP TRIGGER name;
+	// Remove triggers, because we don't have icu extension
+	// SELECT name, sql FROM sqlite_master WHERE type='trigger' AND tbl_name='metadata_items' AND name LIKE '%update%'
+	_, err = db.Exec("DROP TRIGGER IF EXISTS fts4_metadata_titles_before_update_icu")
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = db.Exec("DROP TRIGGER IF EXISTS fts4_metadata_titles_after_update_icu")
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	upd_stmt, err := db.Prepare("UPDATE `metadata_items` SET `added_at`=? WHERE `id` IN (SELECT `metadata_item_id` FROM `media_items` WHERE `id` = ? LIMIT 1)")
 	if err != nil {
@@ -445,5 +454,15 @@ func main() {
 			fmt.Printf("error walking the path %q: %v\n", file_dir, err)
 			return
 		}
+	}
+
+	// Add triggers back
+	_, err = db.Exec("CREATE TRIGGER fts4_metadata_titles_before_update_icu BEFORE UPDATE ON metadata_items BEGIN DELETE FROM fts4_metadata_titles_icu WHERE docid=old.rowid; END")
+	if err != nil {
+		log.Fatal(err)
+	}
+	_, err = db.Exec("CREATE TRIGGER fts4_metadata_titles_after_update_icu AFTER UPDATE ON metadata_items BEGIN INSERT INTO fts4_metadata_titles_icu(docid, title, title_sort, original_title) VALUES(new.rowid, new.title, new.title_sort, new.original_title); END")
+	if err != nil {
+		log.Fatal(err)
 	}
 }

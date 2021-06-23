@@ -2,7 +2,7 @@ FROM saoneth/plex-custom-audio:builder as builder
 WORKDIR /go/src/github.com/saoneth/plex-custom-audio/
 COPY . /go/src/github.com/saoneth/plex-custom-audio/
 RUN mkdir bin/ && go build -x -ldflags '-s -w -extldflags "-static -static-libgcc -static-libstdc++"' -o /build/ ./...
-RUN upx -9 '/build/Plex Custom Audio Mapper'
+#RUN upx -9 '/build/Plex Custom Audio Mapper'
 
 FROM scratch
 COPY --from=builder /build/* /

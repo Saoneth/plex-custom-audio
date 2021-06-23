@@ -1,13 +1,18 @@
 package main
 
 import (
+	"bufio"
 	"database/sql"
 	"fmt"
 	_ "github.com/mattn/go-sqlite3"
+	"io/ioutil"
 	"log"
 	"os"
-	"strings"
+	"os/exec"
+	"path/filepath"
+	"runtime"
 	"strconv"
+	"strings"
 	"syscall"
 	util "github.com/saoneth/plex-custom-audio"
 )
@@ -16,7 +21,25 @@ func runTranscoder(args []string) {
 	log.Println("Running transcoder with args:")
 	log.Println(args)
 	log.Println(os.Environ())
-	err := syscall.Exec(args[0] + "_org", args, os.Environ())
+	ext := filepath.Ext(args[0])
+	orgFilename := args[0][0:len(args[0])-len(ext)] + "_org" + ext
+	
+	var err error
+	if runtime.GOOS == "windows" {
+		cmd := exec.Command(orgFilename, args[1:]...)
+
+		go func() {
+			// wait until the parent dies and bufio closes the stdin
+			_, _ = ioutil.ReadAll(os.Stdin)
+			if cmd.Process != nil {
+				_ = cmd.Process.Kill()
+			}
+		}()
+
+		_, err = cmd.Output()
+	} else {
+		err = syscall.Exec(orgFilename, args, os.Environ())
+	}
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -31,6 +54,30 @@ func main() {
 
 	log.SetOutput(f)
 	log.SetFlags(log.LstdFlags | log.Lshortfile)
+
+	if runtime.GOOS == "windows" {
+		child := false
+		for i := 1; i < len(os.Args); i++ {
+			arg := os.Args[i]
+			if arg == "-child" {
+				child = true
+				break
+			}
+		}
+		if !child {
+			//start new child for watching this process
+			args := append(os.Args[1:], "-child")
+			cmd := exec.Command(os.Args[0], args...)
+
+			//this is important, bufio will close after the parent exits,
+			// unlike os.Stdin which screws up, at least on linux
+			cmd.Stdin = bufio.NewReader(os.Stdin)
+
+			cmd.Start()
+			_, _ = cmd.Process.Wait()
+			return
+		}
+	}
 
 	log.Println("Args:")
 	log.Println(os.Args)
@@ -194,6 +241,10 @@ func main() {
 
 	for i := 0; i < len(os.Args); i++ {
 		arg := os.Args[i]
+
+		if arg == "-child" {
+			continue
+		}
 
 		// Add -codec only if it's for valid input
 		if strings.HasPrefix(arg, "-codec:") {
